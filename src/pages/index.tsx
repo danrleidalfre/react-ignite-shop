@@ -1,26 +1,70 @@
-import {styled} from "@/styles"
+import Image from "next/image"
+import {HomeContainer, Product} from "@/styles/pages/home"
+import {GetServerSideProps} from "next"
+import {stripe} from "@/lib/stripe"
 
-const Button = styled('button', {
-  backgroundColor: '$green300',
-  borderRadius: 4,
-  border: 0,
-  padding: '4px 8px',
+import {useKeenSlider} from 'keen-slider/react'
 
-  span: {
-    fontWeight: 'bold'
-  },
+import 'keen-slider/keen-slider.min.css'
 
-  '&:hover': {
-    filter: 'brightness(0.8)'
-  }
-})
+import Stripe from "stripe"
 
+interface HomeProps {
+  products: {
+    id: string
+    name: string
+    imageUrl: string
+    price: number
+  }[]
+}
 
-export default function Home() {
+export default function Home({products}: HomeProps) {
+  const [sliderRef] = useKeenSlider({
+    slides: {
+      perView: 3,
+      spacing: 48
+    }
+  });
+
   return (
-    <Button>
-      <span>Testedassd</span>
-      Enviar
-    </Button>
+    <HomeContainer ref={sliderRef} className="keen-slider">
+      {products.map(product => {
+        return (
+          <Product key={product.id} className="keen-slider__slide">
+            <Image src={product.imageUrl} width={520} height={480} alt=""/>
+
+            <footer>
+              <strong>{product.name}</strong>
+              <span>{product.price}</span>
+            </footer>
+          </Product>
+        )
+      })}
+    </HomeContainer>
   );
+}
+
+export const getServerSideProps: GetServerSideProps = async () => {
+  const response = await stripe.products.list({
+    expand: ['data.default_price']
+  });
+
+
+  const products = response.data.map(product => {
+    const price = product.default_price as Stripe.Price;
+
+    console.log('rodou')
+    return {
+      id: product.id,
+      name: product.name,
+      imageUrl: product.images[0],
+      price: price.unit_amount / 100,
+    }
+  })
+
+  return {
+    props: {
+      products
+    }
+  }
 }
